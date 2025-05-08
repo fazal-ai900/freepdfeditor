@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Free online PDF editor - edit, annotate, and download PDFs without sign-up. Privacy-focused and easy to use.">
+  <meta name="description" content="Free online PDF editor - edit, annotate, add images, and download PDFs without sign-up. Privacy-focused and easy to use.">
   <meta name="keywords" content="free PDF editor, edit PDF online, PDF annotator, browser-based PDF editor">
   <title>Free PDF Editor - Edit PDFs Online</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -11,16 +11,25 @@
     body {
       font-family: Arial, sans-serif;
     }
-    #pdfCanvas {
-      border: 1px solid #ccc;
+    #pdfContainer {
+      position: relative;
       width: 100%;
       max-height: 600px;
+      border: 1px solid #ccc;
+    }
+    #pdfCanvas, #fabricCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
     }
     .navbar-brand {
       font-weight: bold;
     }
     header {
       background: linear-gradient(45deg, #007bff, #00d4ff);
+    }
+    .resize-panel {
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -44,7 +53,7 @@
   <header class="bg-primary text-white text-center py-5">
     <div class="container">
       <h1>Free Online PDF Editor</h1>
-      <p class="lead">Edit, annotate, and download PDFs in your browser - no sign-up required!</p>
+      <p class="lead">Edit, annotate, add images, and download PDFs in your browser - no sign-up required!</p>
       <input type="file" id="pdfUpload" accept="application/pdf" class="btn btn-light mt-3">
     </div>
   </header>
@@ -53,16 +62,32 @@
     <section id="editor" class="d-none">
       <div class="row">
         <div class="col-md-8">
-          <canvas id="pdfCanvas"></canvas>
+          <div id="pdfContainer">
+            <canvas id="pdfCanvas"></canvas>
+            <canvas id="fabricCanvas"></canvas>
+          </div>
         </div>
         <div class="col-md-4">
           <h3>Tools</h3>
           <div class="mb-3">
             <label for="textInput" class="form-label">Add Text</label>
             <input type="text" id="textInput" class="form-control" placeholder="Enter text">
-            <button onclick="addText()" class="btn btn-primary mt-2">Add to PDF</button>
+            <button onclick="addText()" class="btn btn-primary mt-2">Add Text</button>
           </div>
-          <button onclick="downloadPDF()" class="btn btn-success">Download Edited PDF</button>
+          <div class="mb-3">
+            <label for="imageUpload" class="form-label">Add Image</label>
+            <input type="file" id="imageUpload" accept="image/*" class="form-control">
+          </div>
+          <button onclick="deleteSelected()" class="btn btn-danger mb-3">Delete Selected</button>
+          <div class="resize-panel">
+            <h4>Resize Selected</h4>
+            <label for="widthInput" class="form-label">Width (%)</label>
+            <input type="number" id="widthInput" class="form-control" placeholder="100" min="10" max="200">
+            <label for="heightInput" class="form-label">Height (%)</label>
+            <input type="number" id="heightInput" class="form-control" placeholder="100" min="10" max="200">
+            <button onclick="resizeSelected()" class="btn btn-secondary mt-2">Apply Resize</button>
+          </div>
+          <button onclick="downloadPDF()" class="btn btn-success mt-3">Download Edited PDF</button>
         </div>
       </div>
     </section>
@@ -117,64 +142,238 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
   <script>
     let pdfDoc = null;
-    let pageNumの下部 = 1;
+    let pageNum = 1;
     let pdfBytes = null;
+    let fabricCanvas = null;
+    let scale = 1.5;
 
+    // Initialize Fabric.js canvas
+    function initFabricCanvas(width, height) {
+      if (fabricCanvas) fabricCanvas.dispose();
+      const canvas = new fabric.Canvas('fabricCanvas', {
+        width: width,
+        height: height,
+        backgroundColor: 'transparent',
+      });
+      canvas.on('selection:created', updateResizePanel);
+      canvas.on('selection:updated', updateResizePanel);
+      canvas.on('selection:cleared', () => {
+        document.getElementById('widthInput').value = '';
+        document.getElementById('heightInput').value = '';
+      });
+      return canvas;
+    }
+
+    // Update resize panel with selected object's dimensions
+    function updateResizePanel(e) {
+      const obj = e.target;
+      if (obj) {
+        document.getElementById('widthInput').value = Math.round(obj.scaleX * 100);
+        document.getElementById('heightInput').value = Math.round(obj.scaleY * 100);
+      }
+    }
+
+    // Set PDF.js worker source
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
+    // Handle PDF upload
     document.getElementById('pdfUpload').addEventListener('change', async (e) => {
       const file = e.target.files[0];
-      if (file && file.type === 'application/pdf') {
+      if (!file) {
+        alert('Please select a file.');
+        return;
+      }
+      if (file.type !== 'application/pdf') {
+        alert('Please upload a valid PDF file.');
+        return;
+      }
+      try {
         const arrayBuffer = await file.arrayBuffer();
         pdfBytes = new Uint8Array(arrayBuffer);
-        loadPDF(arrayBuffer);
+        await loadPDF(arrayBuffer);
         document.getElementById('editor').classList.remove('d-none');
+      } catch (error) {
+        console.error('Error loading PDF:', error);
+        alert('Failed to load PDF. Please try another file.');
       }
     });
 
+    // Load and render PDF
     async function loadPDF(arrayBuffer) {
-      pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      renderPage(pageNum);
-    }
-
-    async function renderPage(num) {
-      const page = await pdfDoc.getPage(num);
-      const viewport = page.getViewport({ scale: 1.5 });
-      const canvas = document.getElementById('pdfCanvas');
-      const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-      await page.render({ canvasContext: context, viewport }).promise;
-    }
-
-    async function addText() {
-      if (!pdfBytes) return;
-      const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
-      const page = pdfDoc.getPage(0);
-      const text = document.getElementById('textInput').value;
-      if (text) {
-        page.drawText(text, {
-          x: 50,
-          y: page.getHeight() - 50,
-          size: 12,
-          color: PDFLib.rgb(0, 0, 0),
-        });
-        pdfBytes = await pdfDoc.save();
-        loadPDF(pdfBytes);
+      try {
+        pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        console.log('PDF loaded successfully:', pdfDoc.numPages, 'pages');
+        await renderPage(pageNum);
+      } catch (error) {
+        console.error('Error rendering PDF:', error);
+        throw error;
       }
     }
 
+    // Render a specific page
+    async function renderPage(num) {
+      try {
+        const page = await pdfDoc.getPage(num);
+        const viewport = page.getViewport({ scale: scale });
+        const pdfCanvas = document.getElementById('pdfCanvas');
+        const context = pdfCanvas.getContext('2d');
+
+        // Set PDF canvas dimensions
+        pdfCanvas.height = viewport.height;
+        pdfCanvas.width = viewport.width;
+
+        // Clear PDF canvas
+        context.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+
+        // Render page
+        await page.render({ canvasContext: context, viewport }).promise;
+        console.log('Page rendered:', num);
+
+        // Initialize Fabric.js canvas with same dimensions
+        fabricCanvas = initFabricCanvas(viewport.width, viewport.height);
+      } catch (error) {
+        console.error('Error rendering page:', error);
+        throw error;
+      }
+    }
+
+    // Add text annotation
+    function addText() {
+      const text = document.getElementById('textInput').value;
+      if (!text) {
+        alert('Please enter text to add.');
+        return;
+      }
+      const fabricText = new fabric.Text(text, {
+        left: 50,
+        top: 50,
+        fontSize: 12,
+        fill: '#000000',
+        selectable: true,
+        evented: true,
+      });
+      fabricCanvas.add(fabricText);
+      fabricCanvas.setActiveObject(fabricText);
+      fabricCanvas.renderAll();
+      console.log('Text added to canvas:', text);
+    }
+
+    // Handle image upload
+    document.getElementById('imageUpload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file || !file.type.startsWith('image/')) {
+        alert('Please upload a valid image file.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const fabricImg = new fabric.Image(img, {
+            left: 50,
+            top: 50,
+            scaleX: 0.5,
+            scaleY: 0.5,
+            selectable: true,
+            evented: true,
+          });
+          fabricCanvas.add(fabricImg);
+          fabricCanvas.setActiveObject(fabricImg);
+          fabricCanvas.renderAll();
+          console.log('Image added to canvas');
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Delete selected object
+    function deleteSelected() {
+      const activeObject = fabricCanvas.getActiveObject();
+      if (activeObject) {
+        fabricCanvas.remove(activeObject);
+        fabricCanvas.renderAll();
+        console.log('Object deleted');
+      } else {
+        alert('Please select an object to delete.');
+      }
+    }
+
+    // Resize selected object
+    function resizeSelected() {
+      const activeObject = fabricCanvas.getActiveObject();
+      if (!activeObject) {
+        alert('Please select an object to resize.');
+        return;
+      }
+      const widthPercent = parseInt(document.getElementById('widthInput').value) || 100;
+      const heightPercent = parseInt(document.getElementById('heightInput').value) || 100;
+      if (widthPercent < 10 || widthPercent > 200 || heightPercent < 10 || heightPercent > 200) {
+        alert('Width and height must be between 10% and 200%.');
+        return;
+      }
+      activeObject.scaleX = widthPercent / 100;
+      activeObject.scaleY = heightPercent / 100;
+      activeObject.setCoords();
+      fabricCanvas.renderAll();
+      console.log('Object resized:', widthPercent, heightPercent);
+    }
+
+    // Download edited PDF
     async function downloadPDF() {
-      if (!pdfBytes) return;
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'edited_pdf.pdf';
-      link.click();
-      URL.revokeObjectURL(url);
+      if (!pdfBytes) {
+        alert('No PDF loaded.');
+        return;
+      }
+      try {
+        const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+        const page = pdfDoc.getPage(0);
+        const objects = fabricCanvas.getObjects();
+
+        for (const obj of objects) {
+          if (obj.type === 'text') {
+            page.drawText(obj.text, {
+              x: obj.left / scale,
+              y: (page.getHeight() - (obj.top + obj.height * obj.scaleY)) / scale,
+              size: (obj.fontSize * obj.scaleY) / scale,
+              color: PDFLib.rgb(0, 0, 0),
+            });
+          } else if (obj.type === 'image') {
+            const imgData = obj.toDataURL();
+            const imgType = imgData.split(';')[0].split(':')[1];
+            let pdfImg;
+            if (imgType === 'image/png') {
+              pdfImg = await pdfDoc.embedPng(imgData);
+            } else if (imgType === 'image/jpeg') {
+              pdfImg = await pdfDoc.embedJpg(imgData);
+            }
+            if (pdfImg) {
+              page.drawImage(pdfImg, {
+                x: obj.left / scale,
+                y: (page.getHeight() - (obj.top + obj.height * obj.scaleY)) / scale,
+                width: (obj.width * obj.scaleX) / scale,
+                height: (obj.height * obj.scaleY) / scale,
+              });
+            }
+          }
+        }
+
+        pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'edited_pdf.pdf';
+        link.click();
+        URL.revokeObjectURL(url);
+        console.log('PDF downloaded');
+      } catch (error) {
+        console.error('Error downloading PDF:', error);
+        alert('Failed to download PDF.');
+      }
     }
   </script>
 </body>
