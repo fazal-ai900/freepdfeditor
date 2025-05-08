@@ -3,378 +3,287 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Free online PDF editor - edit, annotate, add images, and download PDFs without sign-up. Privacy-focused and easy to use.">
-  <meta name="keywords" content="free PDF editor, edit PDF online, PDF annotator, browser-based PDF editor">
+  <meta name="description" content="Free online PDF editor to edit, annotate, resize, choose fonts, remove selected text, and download PDFs without sign-up.">
+  <meta name="keywords" content="free PDF editor, edit PDF online, PDF annotator, resize PDF, custom fonts, remove selected text">
   <title>Free PDF Editor - Edit PDFs Online</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHUlEQVR42mNgwA3Y8eLF/4zMzMzMzMzMzMzMzMzM7ABVvAmL4Z2ZkwAAAABJRU5ErkJggg==">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body {
-      font-family: Arial, sans-serif;
+    body { background-color: #f8f9fa; }
+    #canvas-container { 
+      border: 1px solid #ccc; 
+      background: #fff; 
+      margin-top: 20px; 
+      max-width: 100%; 
+      min-height: 400px; 
+      position: relative; 
     }
-    #pdfContainer {
-      position: relative;
-      width: 100%;
-      max-height: 600px;
-      border: 1px solid #ccc;
+    #pdf-canvas { 
+      display: block; 
+      max-width: 100%; 
+      height: auto; 
     }
-    #pdfCanvas, #fabricCanvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
-    .navbar-brand {
-      font-weight: bold;
-    }
-    header {
-      background: linear-gradient(45deg, #007bff, #00d4ff);
-    }
-    .resize-panel {
-      margin-top: 10px;
-    }
+    .toolbar { margin-bottom: 20px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <div class="container">
-      <a class="navbar-brand" href="/">Free PDF Editor</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
-          <li class="nav-item"><a class="nav-link" href="#blog">Blog</a></li>
-          <li class="nav-item"><a class="nav-link" href="#support">Support</a></li>
-        </ul>
-      </div>
+  <div class="container my-4">
+    <h1 class="text-center mb-4">Free PDF Editor</h1>
+    <div class="toolbar">
+      <input type="file" id="pdf-upload" accept="application/pdf" class="btn btn-outline-primary me-2" aria-label="Upload PDF">
+      <button id="remove-selected-text-btn" class="btn btn-danger me-2" disabled>Remove Selected Text</button>
+      <button id="add-text-btn" class="btn btn-primary me-2" disabled>Add Text</button>
+      <select id="font-select" class="form-select d-inline-block w-auto me-2" disabled aria-label="Select Font">
+        <option value="Helvetica">Helvetica</option>
+        <option value="Times-Roman">Times Roman</option>
+        <option value="Courier">Courier</option>
+      </select>
+      <input type="number" id="font-size" class="form-control d-inline-block w-auto me-2" value="16" min="8" max="72" disabled aria-label="Font Size">
+      <select id="page-size" class="form-select d-inline-block w-auto me-2" disabled aria-label="Select Page Size">
+        <option value="A4">A4</option>
+        <option value="A3">A3</option>
+        <option value="Letter">Letter</option>
+        <option value="Legal">Legal</option>
+      </select>
+      <button id="download-btn" class="btn btn-success" disabled>Download PDF</button>
     </div>
-  </nav>
-
-  <header class="bg-primary text-white text-center py-5">
-    <div class="container">
-      <h1>Free Online PDF Editor</h1>
-      <p class="lead">Edit, annotate, add images, and download PDFs in your browser - no sign-up required!</p>
-      <input type="file" id="pdfUpload" accept="application/pdf" class="btn btn-light mt-3">
+    <div id="canvas-container">
+      <canvas id="pdf-canvas"></canvas>
     </div>
-  </header>
+  </div>
 
-  <main class="container my-5">
-    <section id="editor" class="d-none">
-      <div class="row">
-        <div class="col-md-8">
-          <div id="pdfContainer">
-            <canvas id="pdfCanvas"></canvas>
-            <canvas id="fabricCanvas"></canvas>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <h3>Tools</h3>
-          <div class="mb-3">
-            <label for="textInput" class="form-label">Add Text</label>
-            <input type="text" id="textInput" class="form-control" placeholder="Enter text">
-            <button onclick="addText()" class="btn btn-primary mt-2">Add Text</button>
-          </div>
-          <div class="mb-3">
-            <label for="imageUpload" class="form-label">Add Image</label>
-            <input type="file" id="imageUpload" accept="image/*" class="form-control">
-          </div>
-          <button onclick="deleteSelected()" class="btn btn-danger mb-3">Delete Selected</button>
-          <div class="resize-panel">
-            <h4>Resize Selected</h4>
-            <label for="widthInput" class="form-label">Width (%)</label>
-            <input type="number" id="widthInput" class="form-control" placeholder="100" min="10" max="200">
-            <label for="heightInput" class="form-label">Height (%)</label>
-            <input type="number" id="heightInput" class="form-control" placeholder="100" min="10" max="200">
-            <button onclick="resizeSelected()" class="btn btn-secondary mt-2">Apply Resize</button>
-          </div>
-          <button onclick="downloadPDF()" class="btn btn-success mt-3">Download Edited PDF</button>
-        </div>
-      </div>
-    </section>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.min.mjs" type="module"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.0/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.min.mjs';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.worker.min.mjs';
 
-    <section id="features" class="text-center">
-      <h2>Why Use Our PDF Editor?</h2>
-      <div class="row mt-4">
-        <div class="col-md-4">
-          <h4>Privacy First</h4>
-          <p>All editing happens in your browser - no data is uploaded.</p>
-        </div>
-        <div class="col-md-4">
-          <h4>Free Forever</h4>
-          <p>No hidden fees or subscriptions required.</p>
-        </div>
-        <div class="col-md-4">
-          <h4>Easy to Use</h4>
-          <p>Simple interface for quick PDF edits.</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="cta" class="text-center mt-5">
-      <h3>Support Our Work</h3>
-      <p>Love our free PDF editor? Consider supporting us!</p>
-      <a href="https://www.buymeacoffee.com/<your-username>" target="_blank" class="btn btn-warning">Buy Me a Coffee</a>
-    </section>
-
-    <section id="about" class="mt-5">
-      <h2>About</h2>
-      <p>Welcome to Free PDF Editor, a privacy-focused tool to edit PDFs in your browser. Built with open-source libraries, our mission is to provide a free, easy-to-use solution for everyone.</p>
-    </section>
-
-    <section id="blog" class="mt-5">
-      <h2>Blog</h2>
-      <h3>How to Edit PDFs for Free</h3>
-      <p>Learn how to use our free PDF editor to annotate and edit PDFs without software. <a href="/">Try it now!</a></p>
-      <p><em>Affiliate</em>: Host your projects with <a href="https://www.digitalocean.com/?refcode=<your-affiliate-code>" target="_blank">DigitalOcean</a>.</p>
-    </section>
-
-    <section id="support" class="mt-5">
-      <h2>Support</h2>
-      <p>Love our tool? Support us via <a href="https://www.buymeacoffee.com/<your-username>" target="_blank">Buy Me a Coffee</a> to keep it free!</p>
-    </section>
-  </main>
-
-  <footer class="bg-dark text-white text-center py-3">
-    <p>© 2025 Free PDF Editor. All rights reserved. | <a href="#about" class="text-white">About</a> | <a href="#blog" class="text-white">Blog</a> | <a href="#support" class="text-white">Support</a></p>
-    <p>Affiliate: Try <a href="https://www.digitalocean.com/?refcode=<your-affiliate-code>" target="_blank" class="text-white">DigitalOcean</a> for reliable hosting.</p>
-  </footer>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-  <script>
     let pdfDoc = null;
-    let pageNum = 1;
     let pdfBytes = null;
+    let currentPageNum = 1;
     let fabricCanvas = null;
-    let scale = 1.5;
+    let scale = 1.0;
+
+    const canvas = document.getElementById('pdf-canvas');
+    const ctx = canvas.getContext('2d');
+    const pdfUpload = document.getElementById('pdf-upload');
+    const removeSelectedTextBtn = document.getElementById('remove-selected-text-btn');
+    const addTextBtn = document.getElementById('add-text-btn');
+    const fontSelect = document.getElementById('font-select');
+    const fontSizeInput = document.getElementById('font-size');
+    const pageSizeSelect = document.getElementById('page-size');
+    const downloadBtn = document.getElementById('download-btn');
+    const canvasContainer = document.getElementById('canvas-container');
+
+    // Draw placeholder text if no PDF is loaded
+    function drawPlaceholder() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#888';
+      ctx.font = '20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('No PDF loaded. Upload a PDF to start.', canvas.width / 2, canvas.height / 2);
+    }
+
+    // Initialize canvas with placeholder
+    canvas.width = canvasContainer.clientWidth;
+    canvas.height = 400;
+    drawPlaceholder();
 
     // Initialize Fabric.js canvas
-    function initFabricCanvas(width, height) {
-      if (fabricCanvas) fabricCanvas.dispose();
-      const canvas = new fabric.Canvas('fabricCanvas', {
-        width: width,
-        height: height,
-        backgroundColor: 'transparent',
-      });
-      canvas.on('selection:created', updateResizePanel);
-      canvas.on('selection:updated', updateResizePanel);
-      canvas.on('selection:cleared', () => {
-        document.getElementById('widthInput').value = '';
-        document.getElementById('heightInput').value = '';
-      });
-      return canvas;
-    }
-
-    // Update resize panel with selected object's dimensions
-    function updateResizePanel(e) {
-      const obj = e.target;
-      if (obj) {
-        document.getElementById('widthInput').value = Math.round(obj.scaleX * 100);
-        document.getElementById('heightInput').value = Math.round(obj.scaleY * 100);
-      }
-    }
-
-    // Set PDF.js worker source
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
-    // Handle PDF upload
-    document.getElementById('pdfUpload').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) {
-        alert('Please select a file.');
-        return;
-      }
-      if (file.type !== 'application/pdf') {
-        alert('Please upload a valid PDF file.');
-        return;
-      }
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        pdfBytes = new Uint8Array(arrayBuffer);
-        await loadPDF(arrayBuffer);
-        document.getElementById('editor').classList.remove('d-none');
-      } catch (error) {
-        console.error('Error loading PDF:', error);
-        alert('Failed to load PDF. Please try another file.');
-      }
+    fabricCanvas = new fabric.Canvas('pdf-canvas', { 
+      preserveObjectStacking: true,
+      backgroundColor: null
     });
+
+    // Page size dimensions (in points, 1 point = 1/72 inch)
+    const pageSizes = {
+      A4: [595, 842],
+      A3: [842, 1190],
+      Letter: [612, 792],
+      Legal: [612, 1008]
+    };
 
     // Load and render PDF
-    async function loadPDF(arrayBuffer) {
+    async function loadPDF(file) {
       try {
+        if (!file || file.type !== 'application/pdf') {
+          throw new Error('Invalid file. Please upload a PDF.');
+        }
+        console.log('Loading PDF:', file.name, `Size: ${file.size} bytes`);
+        const arrayBuffer = await file.arrayBuffer();
+        pdfBytes = arrayBuffer;
         pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         console.log('PDF loaded successfully:', pdfDoc.numPages, 'pages');
-        await renderPage(pageNum);
+        enableControls();
+        await renderPage(currentPageNum);
       } catch (error) {
-        console.error('Error rendering PDF:', error);
-        throw error;
+        console.error('Error loading PDF:', error.message);
+        alert(`Failed to load PDF: ${error.message}. Please try a different file.`);
+        drawPlaceholder();
       }
     }
 
-    // Render a specific page
-    async function renderPage(num) {
+    // Render PDF page
+    async function renderPage(pageNum) {
       try {
-        const page = await pdfDoc.getPage(num);
-        const viewport = page.getViewport({ scale: scale });
-        const pdfCanvas = document.getElementById('pdfCanvas');
-        const context = pdfCanvas.getContext('2d');
+        const page = await pdfDoc.getPage(pageNum);
+        const containerWidth = canvasContainer.clientWidth;
+        const viewport = page.getViewport({ scale: 1.0 });
+        scale = Math.min(containerWidth / viewport.width, 1.0); // Fallback to 1.0 if invalid
+        const scaledViewport = page.getViewport({ scale: scale });
 
-        // Set PDF canvas dimensions
-        pdfCanvas.height = viewport.height;
-        pdfCanvas.width = viewport.width;
+        console.log(`Rendering page ${pageNum}: Canvas=${scaledViewport.width}x${scaledViewport.height}, Scale=${scale}`);
 
-        // Clear PDF canvas
-        context.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+        // Set canvas dimensions
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+        canvas.style.width = `${scaledViewport.width}px`;
+        canvas.style.height = `${scaledViewport.height}px`;
+        canvas.style.display = 'block';
 
-        // Render page
-        await page.render({ canvasContext: context, viewport }).promise;
-        console.log('Page rendered:', num);
-
-        // Initialize Fabric.js canvas with same dimensions
-        fabricCanvas = initFabricCanvas(viewport.width, viewport.height);
-      } catch (error) {
-        console.error('Error rendering page:', error);
-        throw error;
-      }
-    }
-
-    // Add text annotation
-    function addText() {
-      const text = document.getElementById('textInput').value;
-      if (!text) {
-        alert('Please enter text to add.');
-        return;
-      }
-      const fabricText = new fabric.Text(text, {
-        left: 50,
-        top: 50,
-        fontSize: 12,
-        fill: '#000000',
-        selectable: true,
-        evented: true,
-      });
-      fabricCanvas.add(fabricText);
-      fabricCanvas.setActiveObject(fabricText);
-      fabricCanvas.renderAll();
-      console.log('Text added to canvas:', text);
-    }
-
-    // Handle image upload
-    document.getElementById('imageUpload').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file || !file.type.startsWith('image/')) {
-        alert('Please upload a valid image file.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const fabricImg = new fabric.Image(img, {
-            left: 50,
-            top: 50,
-            scaleX: 0.5,
-            scaleY: 0.5,
-            selectable: true,
-            evented: true,
-          });
-          fabricCanvas.add(fabricImg);
-          fabricCanvas.setActiveObject(fabricImg);
-          fabricCanvas.renderAll();
-          console.log('Image added to canvas');
+        // Clear and render PDF
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const renderContext = { 
+          canvasContext: ctx, 
+          viewport: scaledViewport 
         };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
+        await page.render(renderContext).promise;
 
-    // Delete selected object
-    function deleteSelected() {
+        // Update Fabric.js canvas after PDF rendering
+        fabricCanvas.setDimensions({ 
+          width: scaledViewport.width, 
+          height: scaledViewport.height 
+        });
+        fabricCanvas.clear();
+        fabricCanvas.renderAll();
+
+        console.log(`Page ${pageNum} rendered successfully`);
+      } catch (error) {
+        console.error('Error rendering page:', error.message);
+        alert(`Failed to render PDF page: ${error.message}`);
+        drawPlaceholder();
+      }
+    }
+
+    // Enable toolbar controls
+    function enableControls() {
+      addTextBtn.disabled = false;
+      fontSelect.disabled = false;
+      fontSizeInput.disabled = false;
+      pageSizeSelect.disabled = false;
+      downloadBtn.disabled = false;
+    }
+
+    // Remove selected text from canvas
+    function removeSelectedText() {
       const activeObject = fabricCanvas.getActiveObject();
-      if (activeObject) {
+      if (activeObject && activeObject.type === 'i-text') {
         fabricCanvas.remove(activeObject);
         fabricCanvas.renderAll();
-        console.log('Object deleted');
+        console.log('Selected text removed');
+        removeSelectedTextBtn.disabled = true;
       } else {
-        alert('Please select an object to delete.');
+        console.log('No text selected for removal');
+        alert('Please select a text annotation to remove.');
       }
     }
 
-    // Resize selected object
-    function resizeSelected() {
+    // Update Remove Selected Text button state based on selection
+    fabricCanvas.on('selection:created', () => {
       const activeObject = fabricCanvas.getActiveObject();
-      if (!activeObject) {
-        alert('Please select an object to resize.');
-        return;
-      }
-      const widthPercent = parseInt(document.getElementById('widthInput').value) || 100;
-      const heightPercent = parseInt(document.getElementById('heightInput').value) || 100;
-      if (widthPercent < 10 || widthPercent > 200 || heightPercent < 10 || heightPercent > 200) {
-        alert('Width and height must be between 10% and 200%.');
-        return;
-      }
-      activeObject.scaleX = widthPercent / 100;
-      activeObject.scaleY = heightPercent / 100;
-      activeObject.setCoords();
+      removeSelectedTextBtn.disabled = !(activeObject && activeObject.type === 'i-text');
+    });
+    fabricCanvas.on('selection:cleared', () => {
+      removeSelectedTextBtn.disabled = true;
+    });
+
+    // Add text annotation
+    addTextBtn.addEventListener('click', () => {
+      const text = new fabric.IText('Edit me', {
+        left: 50,
+        top: 50,
+        fontFamily: fontSelect.value,
+        fontSize: parseInt(fontSizeInput.value),
+        fill: '#000000'
+      });
+      fabricCanvas.add(text);
+      fabricCanvas.setActiveObject(text);
       fabricCanvas.renderAll();
-      console.log('Object resized:', widthPercent, heightPercent);
-    }
+    });
 
-    // Download edited PDF
-    async function downloadPDF() {
-      if (!pdfBytes) {
-        alert('No PDF loaded.');
-        return;
+    // Upload PDF
+    pdfUpload.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (file && file.type === 'application/pdf') {
+        console.log('Uploading PDF:', file.name);
+        await loadPDF(file);
+      } else {
+        console.error('Invalid file type. Please upload a PDF.');
+        alert('Please upload a valid PDF file.');
+        drawPlaceholder();
       }
-      try {
-        const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
-        const page = pdfDoc.getPage(0);
-        const objects = fabricCanvas.getObjects();
+    });
 
-        for (const obj of objects) {
-          if (obj.type === 'text') {
+    // Resize page
+    pageSizeSelect.addEventListener('change', async () => {
+      try {
+        const size = pageSizeSelect.value;
+        const [width, height] = pageSizes[size];
+        const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
+        const pages = pdfDocLib.getPages();
+        pages.forEach(page => {
+          page.setSize(width, height);
+        });
+        pdfBytes = await pdfDocLib.save();
+        pdfDoc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+        await renderPage(currentPageNum);
+        console.log(`Page resized to ${size}`);
+      } catch (error) {
+        console.error('Error resizing page:', error);
+        alert('Failed to resize page.');
+      }
+    });
+
+    // Remove selected text button
+    removeSelectedTextBtn.addEventListener('click', () => {
+      removeSelectedText();
+    });
+
+    // Download modified PDF
+    downloadBtn.addEventListener('click', async () => {
+      try {
+        const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
+        const fabricObjects = fabricCanvas.getObjects();
+        for (const obj of fabricObjects) {
+          if (obj.type === 'i-text') {
+            const page = pdfDocLib.getPage(currentPageNum - 1);
+            const font = await pdfDocLib.embedFont(PDFLib.StandardFonts[obj.fontFamily.replace('-', '')]);
             page.drawText(obj.text, {
-              x: obj.left / scale,
-              y: (page.getHeight() - (obj.top + obj.height * obj.scaleY)) / scale,
-              size: (obj.fontSize * obj.scaleY) / scale,
-              color: PDFLib.rgb(0, 0, 0),
+              x: obj.left * scale,
+              y: page.getHeight() - (obj.top + obj.fontSize) * scale,
+              size: obj.fontSize * scale,
+              font: font,
+              color: PDFLib.rgb(0, 0, 0)
             });
-          } else if (obj.type === 'image') {
-            const imgData = obj.toDataURL();
-            const imgType = imgData.split(';')[0].split(':')[1];
-            let pdfImg;
-            if (imgType === 'image/png') {
-              pdfImg = await pdfDoc.embedPng(imgData);
-            } else if (imgType === 'image/jpeg') {
-              pdfImg = await pdfDoc.embedJpg(imgData);
-            }
-            if (pdfImg) {
-              page.drawImage(pdfImg, {
-                x: obj.left / scale,
-                y: (page.getHeight() - (obj.top + obj.height * obj.scaleY)) / scale,
-                width: (obj.width * obj.scaleX) / scale,
-                height: (obj.height * obj.scaleY) / scale,
-              });
-            }
           }
         }
-
-        pdfBytes = await pdfDoc.save();
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const pdfBytesModified = await pdfDocLib.save();
+        const blob = new Blob([pdfBytesModified], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'edited_pdf.pdf';
-        link.click();
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'edited.pdf';
+        a.click();
         URL.revokeObjectURL(url);
-        console.log('PDF downloaded');
+        console.log('PDF downloaded successfully');
       } catch (error) {
         console.error('Error downloading PDF:', error);
         alert('Failed to download PDF.');
       }
-    }
+    });
   </script>
 </body>
 </html>
