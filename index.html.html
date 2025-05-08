@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Free online PDF editor - edit, annotate, and download PDFs without sign-up. Privacy-focused and easy to use.">
+  <meta name="keywords" content="free PDF editor, edit PDF online, PDF annotator, browser-based PDF editor">
+  <title>Free PDF Editor - Edit PDFs Online</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #pdfCanvas {
+      border: 1px solid #ccc;
+      width: 100%;
+      max-height: 600px;
+    }
+    .navbar-brand {
+      font-weight: bold;
+    }
+    header {
+      background: linear-gradient(45deg, #007bff, #00d4ff);
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+      <a class="navbar-brand" href="/">Free PDF Editor</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
+          <li class="nav-item"><a class="nav-link" href="#blog">Blog</a></li>
+          <li class="nav-item"><a class="nav-link" href="#support">Support</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <header class="bg-primary text-white text-center py-5">
+    <div class="container">
+      <h1>Free Online PDF Editor</h1>
+      <p class="lead">Edit, annotate, and download PDFs in your browser - no sign-up required!</p>
+      <input type="file" id="pdfUpload" accept="application/pdf" class="btn btn-light mt-3">
+    </div>
+  </header>
+
+  <main class="container my-5">
+    <section id="editor" class="d-none">
+      <div class="row">
+        <div class="col-md-8">
+          <canvas id="pdfCanvas"></canvas>
+        </div>
+        <div class="col-md-4">
+          <h3>Tools</h3>
+          <div class="mb-3">
+            <label for="textInput" class="form-label">Add Text</label>
+            <input type="text" id="textInput" class="form-control" placeholder="Enter text">
+            <button onclick="addText()" class="btn btn-primary mt-2">Add to PDF</button>
+          </div>
+          <button onclick="downloadPDF()" class="btn btn-success">Download Edited PDF</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="text-center">
+      <h2>Why Use Our PDF Editor?</h2>
+      <div class="row mt-4">
+        <div class="col-md-4">
+          <h4>Privacy First</h4>
+          <p>All editing happens in your browser - no data is uploaded.</p>
+        </div>
+        <div class="col-md-4">
+          <h4>Free Forever</h4>
+          <p>No hidden fees or subscriptions required.</p>
+        </div>
+        <div class="col-md-4">
+          <h4>Easy to Use</h4>
+          <p>Simple interface for quick PDF edits.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="cta" class="text-center mt-5">
+      <h3>Support Our Work</h3>
+      <p>Love our free PDF editor? Consider supporting us!</p>
+      <a href="https://www.buymeacoffee.com/<your-username>" target="_blank" class="btn btn-warning">Buy Me a Coffee</a>
+    </section>
+
+    <section id="about" class="mt-5">
+      <h2>About</h2>
+      <p>Welcome to Free PDF Editor, a privacy-focused tool to edit PDFs in your browser. Built with open-source libraries, our mission is to provide a free, easy-to-use solution for everyone.</p>
+    </section>
+
+    <section id="blog" class="mt-5">
+      <h2>Blog</h2>
+      <h3>How to Edit PDFs for Free</h3>
+      <p>Learn how to use our free PDF editor to annotate and edit PDFs without software. <a href="/">Try it now!</a></p>
+      <p><em>Affiliate</em>: Host your projects with <a href="https://www.digitalocean.com/?refcode=<your-affiliate-code>" target="_blank">DigitalOcean</a>.</p>
+    </section>
+
+    <section id="support" class="mt-5">
+      <h2>Support</h2>
+      <p>Love our tool? Support us via <a href="https://www.buymeacoffee.com/<your-username>" target="_blank">Buy Me a Coffee</a> to keep it free!</p>
+    </section>
+  </main>
+
+  <footer class="bg-dark text-white text-center py-3">
+    <p>© 2025 Free PDF Editor. All rights reserved. | <a href="#about" class="text-white">About</a> | <a href="#blog" class="text-white">Blog</a> | <a href="#support" class="text-white">Support</a></p>
+    <p>Affiliate: Try <a href="https://www.digitalocean.com/?refcode=<your-affiliate-code>" target="_blank" class="text-white">DigitalOcean</a> for reliable hosting.</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let pdfDoc = null;
+    let pageNumの下部 = 1;
+    let pdfBytes = null;
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    document.getElementById('pdfUpload').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (file && file.type === 'application/pdf') {
+        const arrayBuffer = await file.arrayBuffer();
+        pdfBytes = new Uint8Array(arrayBuffer);
+        loadPDF(arrayBuffer);
+        document.getElementById('editor').classList.remove('d-none');
+      }
+    });
+
+    async function loadPDF(arrayBuffer) {
+      pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      renderPage(pageNum);
+    }
+
+    async function renderPage(num) {
+      const page = await pdfDoc.getPage(num);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.getElementById('pdfCanvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      await page.render({ canvasContext: context, viewport }).promise;
+    }
+
+    async function addText() {
+      if (!pdfBytes) return;
+      const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+      const page = pdfDoc.getPage(0);
+      const text = document.getElementById('textInput').value;
+      if (text) {
+        page.drawText(text, {
+          x: 50,
+          y: page.getHeight() - 50,
+          size: 12,
+          color: PDFLib.rgb(0, 0, 0),
+        });
+        pdfBytes = await pdfDoc.save();
+        loadPDF(pdfBytes);
+      }
+    }
+
+    async function downloadPDF() {
+      if (!pdfBytes) return;
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'edited_pdf.pdf';
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
