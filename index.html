@@ -3,287 +3,543 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Free online PDF editor to edit, annotate, resize, choose fonts, remove selected text, and download PDFs without sign-up.">
-  <meta name="keywords" content="free PDF editor, edit PDF online, PDF annotator, resize PDF, custom fonts, remove selected text">
-  <title>Free PDF Editor - Edit PDFs Online</title>
-  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHUlEQVR42mNgwA3Y8eLF/4zMzMzMzMzMzMzMzMzM7ABVvAmL4Z2ZkwAAAABJRU5ErkJggg==">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>Free PDF Editor</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
-    body { background-color: #f8f9fa; }
-    #canvas-container { 
-      border: 1px solid #ccc; 
-      background: #fff; 
-      margin-top: 20px; 
-      max-width: 100%; 
-      min-height: 400px; 
-      position: relative; 
-    }
-    #pdf-canvas { 
-      display: block; 
-      max-width: 100%; 
-      height: auto; 
-    }
-    .toolbar { margin-bottom: 20px; }
-    .hidden { display: none; }
+    /* Tailwind CSS extracted classes (simulating PostCSS output) */
+    .flex { display: flex; }
+    .h-screen { height: 100vh; }
+    .bg-gray-100 { background-color: #f3f4f6; }
+    .w-64 { width: 16rem; }
+    .bg-white { background-color: #ffffff; }
+    .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+    .p-4 { padding: 1rem; }
+    .text-xl { font-size: 1.25rem; }
+    .font-bold { font-weight: 700; }
+    .mb-4 { margin-bottom: 1rem; }
+    .space-y-2 > * + * { margin-top: 0.5rem; }
+    .w-full { width: 100%; }
+    .p-2 { padding: 0.5rem; }
+    .rounded { border-radius: 0.25rem; }
+    .bg-blue-500 { background-color: #3b82f6; }
+    .text-white { color: #ffffff; }
+    .bg-gray-200 { background-color: #e5e7eb; }
+    .bg-green-500 { background-color: #22c55e; }
+    .mt-4 { margin-top: 1rem; }
+    .border { border-width: 1px; border-color: #d1d5db; }
+    .flex-1 { flex: 1 1 auto; }
+    .overflow-auto { overflow: auto; }
+    .items-center { align-items: center; }
+    .justify-center { justify-content: center; }
+    .text-gray-500 { color: #6b7280; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .disabled\:bg-gray-300:disabled { background-color: #d1d5db; }
+    .space-x-2 > * + * { margin-left: 0.5rem; }
+    .bg-red-500 { background-color: #ef4444; }
+    .cursor-pointer { cursor: pointer; }
+    .cursor-move { cursor: move; }
   </style>
 </head>
 <body>
-  <div class="container my-4">
-    <h1 class="text-center mb-4">Free PDF Editor</h1>
-    <div class="toolbar">
-      <input type="file" id="pdf-upload" accept="application/pdf" class="btn btn-outline-primary me-2" aria-label="Upload PDF">
-      <button id="remove-selected-text-btn" class="btn btn-danger me-2" disabled>Remove Selected Text</button>
-      <button id="add-text-btn" class="btn btn-primary me-2" disabled>Add Text</button>
-      <select id="font-select" class="form-select d-inline-block w-auto me-2" disabled aria-label="Select Font">
-        <option value="Helvetica">Helvetica</option>
-        <option value="Times-Roman">Times Roman</option>
-        <option value="Courier">Courier</option>
-      </select>
-      <input type="number" id="font-size" class="form-control d-inline-block w-auto me-2" value="16" min="8" max="72" disabled aria-label="Font Size">
-      <select id="page-size" class="form-select d-inline-block w-auto me-2" disabled aria-label="Select Page Size">
-        <option value="A4">A4</option>
-        <option value="A3">A3</option>
-        <option value="Letter">Letter</option>
-        <option value="Legal">Legal</option>
-      </select>
-      <button id="download-btn" class="btn btn-success" disabled>Download PDF</button>
-    </div>
-    <div id="canvas-container">
-      <canvas id="pdf-canvas"></canvas>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.min.mjs" type="module"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.0/dist/pdf-lib.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script type="module">
-    import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.min.mjs';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.worker.min.mjs';
-
-    let pdfDoc = null;
-    let pdfBytes = null;
-    let currentPageNum = 1;
-    let fabricCanvas = null;
-    let scale = 1.0;
-
-    const canvas = document.getElementById('pdf-canvas');
-    const ctx = canvas.getContext('2d');
-    const pdfUpload = document.getElementById('pdf-upload');
-    const removeSelectedTextBtn = document.getElementById('remove-selected-text-btn');
-    const addTextBtn = document.getElementById('add-text-btn');
-    const fontSelect = document.getElementById('font-select');
-    const fontSizeInput = document.getElementById('font-size');
-    const pageSizeSelect = document.getElementById('page-size');
-    const downloadBtn = document.getElementById('download-btn');
-    const canvasContainer = document.getElementById('canvas-container');
-
-    // Draw placeholder text if no PDF is loaded
-    function drawPlaceholder() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#888';
-      ctx.font = '20px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('No PDF loaded. Upload a PDF to start.', canvas.width / 2, canvas.height / 2);
+  <div id="root"></div>
+  <script type="text/javascript">
+    // Diagnostic logging
+    function logError(message, error) {
+      console.error(`[PDF Editor Error] ${message}`, error);
     }
 
-    // Initialize canvas with placeholder
-    canvas.width = canvasContainer.clientWidth;
-    canvas.height = 400;
-    drawPlaceholder();
+    // Check dependencies
+    if (!window.React) logError('React is not loaded');
+    if (!window.ReactDOM) logError('ReactDOM is not loaded');
+    if (!window.pdfjsLib) logError('pdf.js is not loaded');
 
-    // Initialize Fabric.js canvas
-    fabricCanvas = new fabric.Canvas('pdf-canvas', { 
-      preserveObjectStacking: true,
-      backgroundColor: null
-    });
+    const { useState, useEffect, useRef } = React;
 
-    // Page size dimensions (in points, 1 point = 1/72 inch)
-    const pageSizes = {
-      A4: [595, 842],
-      A3: [842, 1190],
-      Letter: [612, 792],
-      Legal: [612, 1008]
+    const PDFEditor = () => {
+      const [pdfDoc, setPdfDoc] = useState(null);
+      const [pageNum, setPageNum] = useState(1);
+      const [pageCount, setPageCount] = useState(0);
+      const [tool, setTool] = useState('view');
+      const [textInput, setTextInput] = useState('');
+      const [editText, setEditText] = useState('');
+      const [font, setFont] = useState('Arial');
+      const [fontSize, setFontSize] = useState(20);
+      const [annotations, setAnnotations] = useState([]);
+      const [selectedAnnotation, setSelectedAnnotation] = useState(null);
+      const [isDragging, setIsDragging] = useState(false);
+      const canvasRef = useRef(null);
+      const fileInputRef = useRef(null);
+      const imageInputRef = useRef(null);
+
+      useEffect(() => {
+        try {
+          if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          } else {
+            logError('pdf.js not initialized');
+            alert('PDF.js failed to load. Please check your network or try a different browser.');
+          }
+        } catch (error) {
+          logError('Error setting pdf.js worker', error);
+        }
+      }, []);
+
+      const loadPDF = async (file) => {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          setPdfDoc(pdf);
+          setPageCount(pdf.numPages);
+          setAnnotations([]);
+          renderPage(pdf, pageNum);
+        } catch (error) {
+          logError('Error loading PDF', error);
+          alert('Failed to load PDF. Please try another file.');
+        }
+      };
+
+      const renderPage = async (pdf, num) => {
+        try {
+          const page = await pdf.getPage(num);
+          const scale = 1.5;
+          const viewport = page.getViewport({ scale });
+          const canvas = canvasRef.current;
+          if (!canvas) throw new Error('Canvas not found');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          const renderContext = {
+            canvasContext: context,
+            viewport: viewport,
+          };
+          await page.render(renderContext).promise;
+
+          // Render annotations (text and images)
+          annotations
+            .filter((ann) => ann.page === num)
+            .forEach((ann) => {
+              if (ann.type === 'text') {
+                context.font = `${ann.fontSize}px ${ann.font}`;
+                context.fillStyle = ann.id === selectedAnnotation ? 'blue' : 'red';
+                context.fillText(ann.text, ann.x, ann.y);
+                if (ann.id === selectedAnnotation) {
+                  context.strokeStyle = 'blue';
+                  context.strokeRect(ann.x - 5, ann.y - ann.fontSize, context.measureText(ann.text).width + 10, ann.fontSize + 5);
+                }
+              } else if (ann.type === 'image') {
+                context.drawImage(ann.image, ann.x, ann.y, ann.width, ann.height);
+                if (ann.id === selectedAnnotation) {
+                  context.strokeStyle = 'blue';
+                  context.strokeRect(ann.x - 5, ann.y - 5, ann.width + 10, ann.height + 10);
+                }
+              }
+            });
+        } catch (error) {
+          logError('Error rendering page', error);
+        }
+      };
+
+      const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') {
+          loadPDF(file);
+        } else {
+          alert('Please upload a valid PDF file.');
+        }
+      };
+
+      const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              const newAnnotation = {
+                id: Date.now(),
+                type: 'image',
+                page: pageNum,
+                image: img,
+                x: 50,
+                y: 50,
+                width: 100,
+                height: 100 * (img.height / img.width),
+              };
+              setAnnotations([...annotations, newAnnotation]);
+              renderPage(pdfDoc, pageNum);
+            };
+            img.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        } else {
+          alert('Please upload a valid image file (PNG/JPEG).');
+        }
+      };
+
+      const changePage = (offset) => {
+        const newPage = pageNum + offset;
+        if (newPage >= 1 && newPage <= pageCount) {
+          setPageNum(newPage);
+          setSelectedAnnotation(null);
+          setEditText('');
+          renderPage(pdfDoc, newPage);
+        }
+      };
+
+      const addText = () => {
+        if (!textInput) return;
+        const newAnnotation = {
+          id: Date.now(),
+          type: 'text',
+          page: pageNum,
+          text: textInput,
+          x: 50,
+          y: 50,
+          font: font,
+          fontSize: fontSize,
+        };
+        setAnnotations([...annotations, newAnnotation]);
+        setTextInput('');
+        renderPage(pdfDoc, pageNum);
+      };
+
+      const editSelectedText = () => {
+        if (!selectedAnnotation || !editText) return;
+        setAnnotations(annotations.map((ann) => {
+          if (ann.id === selectedAnnotation && ann.type === 'text') {
+            return { ...ann, text: editText };
+          }
+          return ann;
+        }));
+        setEditText('');
+        renderPage(pdfDoc, pageNum);
+      };
+
+      const resizeImage = (scale) => {
+        if (!selectedAnnotation) return;
+        setAnnotations(annotations.map((ann) => {
+          if (ann.id === selectedAnnotation && ann.type === 'image') {
+            const newWidth = ann.width * scale;
+            const newHeight = ann.height * scale;
+            return { ...ann, width: newWidth, height: newHeight };
+          }
+          return ann;
+        }));
+        renderPage(pdfDoc, pageNum);
+      };
+
+      const handleCanvasMouseDown = (e) => {
+        if (tool !== 'annotate') return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+        const clickedAnnotation = annotations.find((ann) => {
+          if (ann.page !== pageNum) return false;
+          if (ann.type === 'text') {
+            const context = canvas.getContext('2d');
+            context.font = `${ann.fontSize}px ${ann.font}`;
+            const textWidth = context.measureText(ann.text).width;
+            return (
+              x >= ann.x &&
+              x <= ann.x + textWidth &&
+              y >= ann.y - ann.fontSize &&
+              y <= ann.y
+            );
+          } else if (ann.type === 'image') {
+            return (
+              x >= ann.x &&
+              x <= ann.x + ann.width &&
+              y >= ann.y &&
+              y <= ann.y + ann.height
+            );
+          }
+          return false;
+        });
+
+        if (clickedAnnotation) {
+          setSelectedAnnotation(clickedAnnotation.id);
+          if (clickedAnnotation.type === 'text') {
+            setEditText(clickedAnnotation.text);
+          } else {
+            setEditText('');
+          }
+          setIsDragging(true);
+        } else {
+          setSelectedAnnotation(null);
+          setEditText('');
+          setIsDragging(false);
+        }
+        renderPage(pdfDoc, pageNum);
+      };
+
+      const handleCanvasMouseMove = (e) => {
+        if (!isDragging || !selectedAnnotation) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+        setAnnotations(annotations.map((ann) => {
+          if (ann.id === selectedAnnotation) {
+            return { ...ann, x, y };
+          }
+          return ann;
+        }));
+        renderPage(pdfDoc, pageNum);
+      };
+
+      const handleCanvasMouseUp = () => {
+        setIsDragging(false);
+      };
+
+      const deleteAnnotation = () => {
+        if (selectedAnnotation) {
+          setAnnotations(annotations.filter((ann) => ann.id !== selectedAnnotation));
+          setSelectedAnnotation(null);
+          setEditText('');
+          renderPage(pdfDoc, pageNum);
+        }
+      };
+
+      const savePDF = async () => {
+        if (!pdfDoc) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        try {
+          const dataUrl = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.download = 'edited_pdf.png';
+          link.click();
+        } catch (error) {
+          logError('Error saving PDF', error);
+        }
+      };
+
+      return React.createElement(
+        'div',
+        { className: 'flex h-screen bg-gray-100' },
+        React.createElement(
+          'div',
+          { className: 'w-64 bg-white shadow-lg p-4' },
+          React.createElement('h2', { className: 'text-xl font-bold mb-4' }, 'PDF Editor'),
+          React.createElement('input', {
+            type: 'file',
+            accept: 'application/pdf',
+            ref: fileInputRef,
+            onChange: handleFileUpload,
+            className: 'mb-4',
+          }),
+          React.createElement(
+            'div',
+            { className: 'space-y-2' },
+            React.createElement(
+              'button',
+              {
+                onClick: () => setTool('view'),
+                className: `w-full p-2 rounded ${tool === 'view' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`,
+              },
+              'View'
+            ),
+            React.createElement(
+              'button',
+              {
+                onClick: () => setTool('annotate'),
+                className: `w-full p-2 rounded ${tool === 'annotate' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`,
+              },
+              'Annotate'
+            ),
+            React.createElement(
+              'button',
+              { onClick: savePDF, className: 'w-full p-2 bg-green-500 text-white rounded' },
+              'Save PDF'
+            )
+          ),
+          tool === 'annotate' &&
+            React.createElement(
+              'div',
+              { className: 'mt-4 space-y-2' },
+              React.createElement('input', {
+                type: 'text',
+                value: textInput,
+                onChange: (e) => setTextInput(e.target.value),
+                placeholder: 'Enter text to annotate',
+                className: 'w-full p-2 border rounded',
+              }),
+              React.createElement(
+                'select',
+                {
+                  value: font,
+                  onChange: (e) => setFont(e.target.value),
+                  className: 'w-full p-2 border rounded',
+                },
+                React.createElement('option', { value: 'Arial' }, 'Arial'),
+                React.createElement('option', { value: 'Times New Roman' }, 'Times New Roman'),
+                React.createElement('option', { value: 'Courier' }, 'Courier')
+              ),
+              React.createElement(
+                'div',
+                { className: 'flex items-center space-x-2' },
+                React.createElement(
+                  'button',
+                  {
+                    onClick: () => setFontSize(Math.max(10, fontSize - 2)),
+                    className: 'p-2 bg-gray-200 rounded',
+                  },
+                  '- Font'
+                ),
+                React.createElement('span', null, `${fontSize}px`),
+                React.createElement(
+                  'button',
+                  {
+                    onClick: () => setFontSize(fontSize + 2),
+                    className: 'p-2 bg-gray-200 rounded',
+                  },
+                  '+ Font'
+                )
+              ),
+              React.createElement(
+                'button',
+                { onClick: addText, className: 'w-full p-2 bg-blue-500 text-white rounded' },
+                'Add Text'
+              ),
+              React.createElement('input', {
+                type: 'file',
+                accept: 'image/*',
+                ref: imageInputRef,
+                onChange: handleImageUpload,
+                className: 'mb-4',
+                style: { display: 'none' },
+              }),
+              React.createElement(
+                'button',
+                {
+                  onClick: () => imageInputRef.current.click(),
+                  className: 'w-full p-2 bg-blue-500 text-white rounded',
+                },
+                'Add Image'
+              ),
+              selectedAnnotation &&
+                annotations.find((ann) => ann.id === selectedAnnotation)?.type === 'text' &&
+                React.createElement(
+                  'div',
+                  { className: 'space-y-2' },
+                  React.createElement('input', {
+                    type: 'text',
+                    value: editText,
+                    onChange: (e) => setEditText(e.target.value),
+                    placeholder: 'Edit selected text',
+                    className: 'w-full p-2 border rounded',
+                  }),
+                  React.createElement(
+                    'button',
+                    {
+                      onClick: editSelectedText,
+                      disabled: !editText,
+                      className: 'w-full p-2 bg-blue-500 text-white rounded disabled:bg-gray-300',
+                    },
+                    'Update Text'
+                  )
+                ),
+              selectedAnnotation &&
+                annotations.find((ann) => ann.id === selectedAnnotation)?.type === 'image' &&
+                React.createElement(
+                  'div',
+                  { className: 'flex items-center space-x-2' },
+                  React.createElement(
+                    'button',
+                    {
+                      onClick: () => resizeImage(0.9),
+                      className: 'p-2 bg-gray-200 rounded',
+                    },
+                    '- Size'
+                  ),
+                  React.createElement(
+                    'button',
+                    {
+                      onClick: () => resizeImage(1.1),
+                      className: 'p-2 bg-gray-200 rounded',
+                    },
+                    '+ Size'
+                  )
+                ),
+              React.createElement(
+                'button',
+                {
+                  onClick: deleteAnnotation,
+                  disabled: !selectedAnnotation,
+                  className: 'w-full p-2 bg-red-500 text-white rounded disabled:bg-gray-300',
+                },
+                'Delete Selected'
+              )
+            )
+        ),
+        React.createElement(
+          'div',
+          { className: 'flex-1 p-4 overflow-auto' },
+          pdfDoc
+            ? React.createElement(
+                'div',
+                { className: 'flex flex-col items-center' },
+                React.createElement(
+                  'div',
+                  { className: 'mb-4' },
+                  React.createElement(
+                    'button',
+                    {
+                      onClick: () => changePage(-1),
+                      disabled: pageNum <= 1,
+                      className: 'px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300',
+                    },
+                    'Previous'
+                  ),
+                  React.createElement('span', { className: 'mx-4' }, `Page ${pageNum} of ${pageCount}`),
+                  React.createElement(
+                    'button',
+                    {
+                      onClick: () => changePage(1),
+                      disabled: pageNum >= pageCount,
+                      className: 'px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300',
+                    },
+                    'Next'
+                  )
+                ),
+                React.createElement('canvas', {
+                  ref: canvasRef,
+                  onMouseDown: handleCanvasMouseDown,
+                  onMouseMove: handleCanvasMouseMove,
+                  onMouseUp: handleCanvasMouseUp,
+                  className: `border shadow-lg ${isDragging ? 'cursor-move' : 'cursor-pointer'}`,
+                })
+              )
+            : React.createElement(
+                'div',
+                { className: 'flex items-center justify-center h-full' },
+                React.createElement('p', { className: 'text-gray-500' }, 'Upload a PDF to start editing')
+              )
+        )
+      );
     };
 
-    // Load and render PDF
-    async function loadPDF(file) {
-      try {
-        if (!file || file.type !== 'application/pdf') {
-          throw new Error('Invalid file. Please upload a PDF.');
-        }
-        console.log('Loading PDF:', file.name, `Size: ${file.size} bytes`);
-        const arrayBuffer = await file.arrayBuffer();
-        pdfBytes = arrayBuffer;
-        pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        console.log('PDF loaded successfully:', pdfDoc.numPages, 'pages');
-        enableControls();
-        await renderPage(currentPageNum);
-      } catch (error) {
-        console.error('Error loading PDF:', error.message);
-        alert(`Failed to load PDF: ${error.message}. Please try a different file.`);
-        drawPlaceholder();
-      }
-    }
-
-    // Render PDF page
-    async function renderPage(pageNum) {
-      try {
-        const page = await pdfDoc.getPage(pageNum);
-        const containerWidth = canvasContainer.clientWidth;
-        const viewport = page.getViewport({ scale: 1.0 });
-        scale = Math.min(containerWidth / viewport.width, 1.0); // Fallback to 1.0 if invalid
-        const scaledViewport = page.getViewport({ scale: scale });
-
-        console.log(`Rendering page ${pageNum}: Canvas=${scaledViewport.width}x${scaledViewport.height}, Scale=${scale}`);
-
-        // Set canvas dimensions
-        canvas.width = scaledViewport.width;
-        canvas.height = scaledViewport.height;
-        canvas.style.width = `${scaledViewport.width}px`;
-        canvas.style.height = `${scaledViewport.height}px`;
-        canvas.style.display = 'block';
-
-        // Clear and render PDF
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const renderContext = { 
-          canvasContext: ctx, 
-          viewport: scaledViewport 
-        };
-        await page.render(renderContext).promise;
-
-        // Update Fabric.js canvas after PDF rendering
-        fabricCanvas.setDimensions({ 
-          width: scaledViewport.width, 
-          height: scaledViewport.height 
-        });
-        fabricCanvas.clear();
-        fabricCanvas.renderAll();
-
-        console.log(`Page ${pageNum} rendered successfully`);
-      } catch (error) {
-        console.error('Error rendering page:', error.message);
-        alert(`Failed to render PDF page: ${error.message}`);
-        drawPlaceholder();
-      }
-    }
-
-    // Enable toolbar controls
-    function enableControls() {
-      addTextBtn.disabled = false;
-      fontSelect.disabled = false;
-      fontSizeInput.disabled = false;
-      pageSizeSelect.disabled = false;
-      downloadBtn.disabled = false;
-    }
-
-    // Remove selected text from canvas
-    function removeSelectedText() {
-      const activeObject = fabricCanvas.getActiveObject();
-      if (activeObject && activeObject.type === 'i-text') {
-        fabricCanvas.remove(activeObject);
-        fabricCanvas.renderAll();
-        console.log('Selected text removed');
-        removeSelectedTextBtn.disabled = true;
+    try {
+      if (window.ReactDOM) {
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(PDFEditor));
       } else {
-        console.log('No text selected for removal');
-        alert('Please select a text annotation to remove.');
+        logError('ReactDOM not available for rendering');
+        document.getElementById('root').innerHTML = '<p>Error: Failed to load the application. Please try a different browser.</p>';
       }
+    } catch (error) {
+      logError('Error rendering React app', error);
+      document.getElementById('root').innerHTML = '<p>Error: Failed to load the application. Please check the console for details.</p>';
     }
-
-    // Update Remove Selected Text button state based on selection
-    fabricCanvas.on('selection:created', () => {
-      const activeObject = fabricCanvas.getActiveObject();
-      removeSelectedTextBtn.disabled = !(activeObject && activeObject.type === 'i-text');
-    });
-    fabricCanvas.on('selection:cleared', () => {
-      removeSelectedTextBtn.disabled = true;
-    });
-
-    // Add text annotation
-    addTextBtn.addEventListener('click', () => {
-      const text = new fabric.IText('Edit me', {
-        left: 50,
-        top: 50,
-        fontFamily: fontSelect.value,
-        fontSize: parseInt(fontSizeInput.value),
-        fill: '#000000'
-      });
-      fabricCanvas.add(text);
-      fabricCanvas.setActiveObject(text);
-      fabricCanvas.renderAll();
-    });
-
-    // Upload PDF
-    pdfUpload.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (file && file.type === 'application/pdf') {
-        console.log('Uploading PDF:', file.name);
-        await loadPDF(file);
-      } else {
-        console.error('Invalid file type. Please upload a PDF.');
-        alert('Please upload a valid PDF file.');
-        drawPlaceholder();
-      }
-    });
-
-    // Resize page
-    pageSizeSelect.addEventListener('change', async () => {
-      try {
-        const size = pageSizeSelect.value;
-        const [width, height] = pageSizes[size];
-        const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
-        const pages = pdfDocLib.getPages();
-        pages.forEach(page => {
-          page.setSize(width, height);
-        });
-        pdfBytes = await pdfDocLib.save();
-        pdfDoc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
-        await renderPage(currentPageNum);
-        console.log(`Page resized to ${size}`);
-      } catch (error) {
-        console.error('Error resizing page:', error);
-        alert('Failed to resize page.');
-      }
-    });
-
-    // Remove selected text button
-    removeSelectedTextBtn.addEventListener('click', () => {
-      removeSelectedText();
-    });
-
-    // Download modified PDF
-    downloadBtn.addEventListener('click', async () => {
-      try {
-        const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
-        const fabricObjects = fabricCanvas.getObjects();
-        for (const obj of fabricObjects) {
-          if (obj.type === 'i-text') {
-            const page = pdfDocLib.getPage(currentPageNum - 1);
-            const font = await pdfDocLib.embedFont(PDFLib.StandardFonts[obj.fontFamily.replace('-', '')]);
-            page.drawText(obj.text, {
-              x: obj.left * scale,
-              y: page.getHeight() - (obj.top + obj.fontSize) * scale,
-              size: obj.fontSize * scale,
-              font: font,
-              color: PDFLib.rgb(0, 0, 0)
-            });
-          }
-        }
-        const pdfBytesModified = await pdfDocLib.save();
-        const blob = new Blob([pdfBytesModified], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'edited.pdf';
-        a.click();
-        URL.revokeObjectURL(url);
-        console.log('PDF downloaded successfully');
-      } catch (error) {
-        console.error('Error downloading PDF:', error);
-        alert('Failed to download PDF.');
-      }
-    });
   </script>
 </body>
 </html>
